@@ -41,6 +41,9 @@ stages:
         targetType: 'inline'
         script: |
           go build -o $(Build.ArtifactStagingDirectory)/Gotenberg/Gotenberg/ ./cmd/gotenberg/main.go
+      env:
+        GOOS: windows
+        GOARCH: amd64
 
     - task: ArchiveFiles@2
       inputs:
