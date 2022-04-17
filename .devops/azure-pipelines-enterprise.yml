@@ -1,0 +1,73 @@
+trigger:
+  batch: true
+  branches:
+    include:
+      - enterprise/*
+
+variables:
+  branchName: $[replace(replace(variables['build.sourcebranch'], 'refs/heads/', ''), '/', '_')]
+
+stages:
+- stage: Build
+  displayName: Build
+  jobs:
+
+  - job: build
+    displayName: Build
+    pool: Default
+    steps:
+    
+    - task: Bash@3
+      displayName: Set The right tags based on the branch name
+      inputs:
+        targetType: 'inline'
+        script: |
+          EXTRA_TAGS=()
+          EXTRA_TAGS+=($(Build.BuildId))
+          EXTRA_TAGS+=("branch-$(branchName)")
+          EXTRA_TAGS+=(`echo "$(branchName)" | grep -o "^[^_]*_[^_]*"`)
+
+          EXTRA_TAGS_FORMATED=`echo ${EXTRA_TAGS[*]} | tr ' ' ','`
+          echo $EXTRA_TAGS_FORMATED
+          echo "##vso[task.setvariable variable=EXTRA_TAGS;]$EXTRA_TAGS_FORMATED"
+    
+    - task: GoTool@0
+      inputs:
+        version: '1.17'
+
+    - task: Bash@3
+      displayName: build project
+      inputs:
+        targetType: 'inline'
+        script: |
+          go build -o $(Build.ArtifactStagingDirectory)/Gotenberg/Gotenberg/ ./cmd/gotenberg/main.go
+      env:
+        GOOS: windows
+        GOARCH: amd64
+
+    - task: ArchiveFiles@2
+      inputs:
+        rootFolderOrFile: '$(Build.ArtifactStagingDirectory)/Gotenberg'
+        includeRootFolder: false
+        archiveType: 'zip'
+        archiveFile: '$(Build.ArtifactStagingDirectory)/Gotenberg.zip'
+        replaceExistingArchive: true
+        verbose: true
+
+    - task: PublishPipelineArtifact@1
+      displayName: Publish Gotenberg Package
+      inputs:
+        targetPath: '$(Build.ArtifactStagingDirectory)/Gotenberg.zip'
+        artifact: 'Gotenberg'
+        publishLocation: 'pipeline'
+
+    - task: Bash@3
+      displayName: Add Build Tags
+      inputs:
+        targetType: 'inline'
+        script: |
+          readarray -d "," -t strarr <<< "$(EXTRA_TAGS)"
+          for item in "${strarr[@]}"
+          do
+            echo "##vso[build.addbuildtag]$item"
+          done
