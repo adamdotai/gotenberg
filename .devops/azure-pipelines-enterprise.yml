@@ -31,6 +31,10 @@ stages:
           echo $EXTRA_TAGS_FORMATED
           echo "##vso[task.setvariable variable=EXTRA_TAGS;]$EXTRA_TAGS_FORMATED"
     
+    - task: GoTool@0
+      inputs:
+        version: '1.17'
+
     - task: Bash@3
       displayName: build project
       inputs:
